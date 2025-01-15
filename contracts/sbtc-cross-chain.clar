@@ -137,3 +137,16 @@
             })
         (var-set nonce (+ current-nonce u1))
         (ok current-nonce)))
+
+;; Bridge Transfer Signing
+(define-public (sign-bridge-transfer (swap-id uint))
+    (let ((swap (unwrap! (map-get? pending-swaps swap-id) ERR-SWAP-NOT-FOUND))
+          (signatures (get signatures swap)))
+        (asserts! (not (var-get paused)) ERR-BRIDGE-PAUSED)
+        (asserts! (default-to false (map-get? authorized-signers tx-sender)) ERR-NOT-AUTHORIZED)
+        (asserts! (not (get completed swap)) ERR-SWAP-ALREADY-COMPLETED)
+        (asserts! (< block-height (get timeout swap)) ERR-SWAP-EXPIRED)
+        (asserts! (not (is-some (index-of signatures tx-sender))) ERR-INVALID-SIGNATURE)
+        (ok (map-set pending-swaps
+            swap-id
+            (merge swap {signatures: (unwrap! (as-max-len? (append signatures tx-sender) u10) ERR-INVALID-SIGNATURE)})))))
