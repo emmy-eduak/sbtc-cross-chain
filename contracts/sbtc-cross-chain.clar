@@ -32,9 +32,12 @@
 (define-constant ERR-SWAP-ALREADY-COMPLETED (err u1007))
 (define-constant ERR-SWAP-EXPIRED (err u1008))
 (define-constant ERR-INVALID-SIGNATURE (err u1009))
+(define-constant ERR-ALREADY-AUTHORIZED (err u1010))
 
 ;; Configuration Constants
 (define-constant BASIS-POINTS u10000)
+(define-constant burn-address 'SP000000000000000000002Q6VF78)
+(define-constant MAX-BRIDGE-AMOUNT u100000000) ;; Example maximum amount in satoshis
 
 ;; State Variables
 (define-data-var contract-owner principal tx-sender)
@@ -65,10 +68,32 @@
 (define-private (calculate-fee (amount uint))
     (/ (* amount (var-get bridge-fee)) BASIS-POINTS))
 
+(define-private (is-valid-destination-chain (chain (string-ascii 32)))
+    (let ((chain-len (len chain)))
+        (and (> chain-len u0) 
+             (<= chain-len u32)
+             (is-chain-supported chain))))
+
+(define-private (is-chain-supported (chain (string-ascii 32)))
+    ;; Add logic to check if the chain is supported
+    true)
+
+(define-private (is-valid-destination-address (addr (buff 42)))
+    (let ((addr-len (len addr)))
+        (and (> addr-len u0)
+             (<= addr-len u42)
+             (is-valid-addr-format addr))))
+
+(define-private (is-valid-addr-format (addr (buff 42)))
+    ;; Add logic to validate the address format
+    true)
+
 ;; Administrative Functions
 (define-public (set-contract-owner (new-owner principal))
     (begin
         (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        (asserts! (not (is-eq new-owner (as-contract tx-sender))) ERR-INVALID-DESTINATION)
+        (asserts! (not (is-eq new-owner burn-address)) ERR-INVALID-DESTINATION)
         (ok (var-set contract-owner new-owner))))
 
 (define-public (set-bridge-fee (new-fee uint))
@@ -80,6 +105,8 @@
 (define-public (set-minimum-amount (amount uint))
     (begin
         (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        (asserts! (> amount u0) ERR-INVALID-AMOUNT)
+        (asserts! (<= amount MAX-BRIDGE-AMOUNT) ERR-INVALID-AMOUNT)
         (ok (var-set minimum-amount amount))))
 
 (define-public (toggle-pause)
@@ -90,6 +117,8 @@
 (define-public (add-authorized-signer (signer principal))
     (begin
         (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        (asserts! (not (is-eq signer (as-contract tx-sender))) ERR-INVALID-DESTINATION)
+        (asserts! (not (default-to false (map-get? authorized-signers signer))) ERR-ALREADY-AUTHORIZED)
         (ok (map-set authorized-signers signer true))))
 
 (define-public (remove-authorized-signer (signer principal))
@@ -121,6 +150,9 @@
          (fee-amount (calculate-fee amount)))
         (asserts! (not (var-get paused)) ERR-BRIDGE-PAUSED)
         (asserts! (default-to false (map-get? supported-tokens token)) ERR-INVALID-TOKEN)
+		(asserts! (is-valid-destination-chain destination-chain) ERR-INVALID-DESTINATION)
+    	(asserts! (is-valid-destination-address destination-address) ERR-INVALID-DESTINATION)
+    
         (asserts! (>= amount (var-get minimum-amount)) ERR-INVALID-AMOUNT)
         (try! (contract-call? token-contract transfer amount tx-sender (as-contract tx-sender) none))
         (map-set pending-swaps
