@@ -106,3 +106,34 @@
     (begin
         (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
         (ok (map-set supported-tokens token false))))
+
+;; Core Bridge Functions
+
+;; Bridge Transfer Initiation
+(define-public (initiate-bridge-transfer 
+    (token-contract <sip-010-trait>)
+    (amount uint)
+    (destination-chain (string-ascii 32))
+    (destination-address (buff 42)))
+    (let
+        ((token (contract-of token-contract))
+         (current-nonce (var-get nonce))
+         (fee-amount (calculate-fee amount)))
+        (asserts! (not (var-get paused)) ERR-BRIDGE-PAUSED)
+        (asserts! (default-to false (map-get? supported-tokens token)) ERR-INVALID-TOKEN)
+        (asserts! (>= amount (var-get minimum-amount)) ERR-INVALID-AMOUNT)
+        (try! (contract-call? token-contract transfer amount tx-sender (as-contract tx-sender) none))
+        (map-set pending-swaps
+            current-nonce
+            {
+                initiator: tx-sender,
+                token: token,
+                amount: (- amount fee-amount),
+                destination-chain: destination-chain,
+                destination-address: destination-address,
+                timeout: (+ block-height u144), ;; 24 hours in blocks
+                completed: false,
+                signatures: (list)
+            })
+        (var-set nonce (+ current-nonce u1))
+        (ok current-nonce)))
