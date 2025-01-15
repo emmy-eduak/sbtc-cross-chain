@@ -131,10 +131,15 @@
         (asserts! (default-to false (map-get? authorized-signers signer)) ERR-NOT-AUTHORIZED)
         (ok (map-set authorized-signers signer false))))
 
-(define-public (add-supported-token (token principal))
+(define-public (add-supported-token (token-contract <sip-010-trait>))
     (begin
         (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
-        (ok (map-set supported-tokens token true))))
+        (let ((token (contract-of token-contract)))
+            ;; Verify token implements SIP-010 trait by calling a trait function
+            (try! (contract-call? token-contract get-name))
+            ;; Prevent duplicate additions
+            (asserts! (not (default-to false (map-get? supported-tokens token))) ERR-ALREADY-AUTHORIZED)
+            (ok (map-set supported-tokens token true)))))
 
 (define-public (remove-supported-token (token principal))
     (begin
