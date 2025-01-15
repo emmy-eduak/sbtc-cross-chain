@@ -171,3 +171,21 @@
                 (get initiator swap) 
                 none)))
         (ok (map-set pending-swaps swap-id (merge swap {completed: true})))))
+
+;; Expired Transfer Cancellation
+(define-public (cancel-expired-transfer (swap-id uint) (token-contract <sip-010-trait>))
+    (let 
+        ((swap (unwrap! (map-get? pending-swaps swap-id) ERR-SWAP-NOT-FOUND))
+         (token (contract-of token-contract)))
+        (asserts! (> block-height (get timeout swap)) ERR-SWAP-EXPIRED)
+        (asserts! (not (get completed swap)) ERR-SWAP-ALREADY-COMPLETED)
+        (asserts! (is-eq token (get token swap)) ERR-INVALID-TOKEN)
+        (try! (as-contract 
+            (contract-call? 
+                token-contract
+                transfer 
+                (get amount swap) 
+                (as-contract tx-sender) 
+                (get initiator swap) 
+                none)))
+        (ok (map-set pending-swaps swap-id (merge swap {completed: true})))))
