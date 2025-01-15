@@ -64,3 +64,45 @@
 ;; Helper Functions
 (define-private (calculate-fee (amount uint))
     (/ (* amount (var-get bridge-fee)) BASIS-POINTS))
+
+;; Administrative Functions
+(define-public (set-contract-owner (new-owner principal))
+    (begin
+        (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        (ok (var-set contract-owner new-owner))))
+
+(define-public (set-bridge-fee (new-fee uint))
+    (begin
+        (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        (asserts! (<= new-fee u1000) ERR-INVALID-AMOUNT) ;; Max 10%
+        (ok (var-set bridge-fee new-fee))))
+
+(define-public (set-minimum-amount (amount uint))
+    (begin
+        (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        (ok (var-set minimum-amount amount))))
+
+(define-public (toggle-pause)
+    (begin
+        (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        (ok (var-set paused (not (var-get paused))))))
+
+(define-public (add-authorized-signer (signer principal))
+    (begin
+        (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        (ok (map-set authorized-signers signer true))))
+
+(define-public (remove-authorized-signer (signer principal))
+    (begin
+        (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        (ok (map-set authorized-signers signer false))))
+
+(define-public (add-supported-token (token principal))
+    (begin
+        (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        (ok (map-set supported-tokens token true))))
+
+(define-public (remove-supported-token (token principal))
+    (begin
+        (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        (ok (map-set supported-tokens token false))))
