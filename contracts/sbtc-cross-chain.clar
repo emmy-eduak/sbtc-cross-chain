@@ -189,3 +189,25 @@
                 (get initiator swap) 
                 none)))
         (ok (map-set pending-swaps swap-id (merge swap {completed: true})))))
+
+;; Read-Only Functions
+(define-read-only (get-pending-swap (swap-id uint))
+    (map-get? pending-swaps swap-id))
+
+(define-read-only (is-signer (account principal))
+    (default-to false (map-get? authorized-signers account)))
+
+(define-read-only (get-bridge-fee)
+    (var-get bridge-fee))
+
+(define-read-only (get-minimum-amount)
+    (var-get minimum-amount))
+
+(define-read-only (is-token-supported (token principal))
+    (default-to false (map-get? supported-tokens token)))
+
+(define-read-only (is-paused)
+    (var-get paused))
+
+;; Contract Initialization
+(map-set authorized-signers (var-get contract-owner) true)
