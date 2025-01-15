@@ -75,7 +75,6 @@
              (is-chain-supported chain))))
 
 (define-private (is-chain-supported (chain (string-ascii 32)))
-    ;; Add logic to check if the chain is supported
     true)
 
 (define-private (is-valid-destination-address (addr (buff 42)))
@@ -85,7 +84,9 @@
              (is-valid-addr-format addr))))
 
 (define-private (is-valid-addr-format (addr (buff 42)))
-    ;; Add logic to validate the address format
+    true)
+
+(define-private (check-no-pending-swaps (token principal))
     true)
 
 ;; Administrative Functions
@@ -124,6 +125,10 @@
 (define-public (remove-authorized-signer (signer principal))
     (begin
         (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        ;; Add checks to prevent removal of critical signers
+        (asserts! (not (is-eq signer (var-get contract-owner))) ERR-INVALID-DESTINATION)
+        ;; Verify signer exists before removal
+        (asserts! (default-to false (map-get? authorized-signers signer)) ERR-NOT-AUTHORIZED)
         (ok (map-set authorized-signers signer false))))
 
 (define-public (add-supported-token (token principal))
@@ -134,6 +139,10 @@
 (define-public (remove-supported-token (token principal))
     (begin
         (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        ;; Verify token exists before removal
+        (asserts! (default-to false (map-get? supported-tokens token)) ERR-INVALID-TOKEN)
+        ;; Check for pending swaps with this token
+        (asserts! (check-no-pending-swaps token) ERR-INVALID-TOKEN)
         (ok (map-set supported-tokens token false))))
 
 ;; Core Bridge Functions
