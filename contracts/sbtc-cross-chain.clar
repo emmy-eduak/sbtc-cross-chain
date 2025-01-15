@@ -32,3 +32,35 @@
 (define-constant ERR-SWAP-ALREADY-COMPLETED (err u1007))
 (define-constant ERR-SWAP-EXPIRED (err u1008))
 (define-constant ERR-INVALID-SIGNATURE (err u1009))
+
+;; Configuration Constants
+(define-constant BASIS-POINTS u10000)
+
+;; State Variables
+(define-data-var contract-owner principal tx-sender)
+(define-data-var paused bool false)
+(define-data-var bridge-fee uint u100) ;; 1% (100 basis points)
+(define-data-var minimum-amount uint u1000000) ;; Minimum amount in satoshis
+(define-data-var nonce uint u0)
+
+;; Data Maps
+(define-map authorized-signers principal bool)
+(define-map supported-tokens principal bool)
+(define-map bridge-balances {token: principal, owner: principal} uint)
+(define-map pending-swaps
+    uint
+    {
+        initiator: principal,
+        token: principal,
+        amount: uint,
+        destination-chain: (string-ascii 32),
+        destination-address: (buff 42),
+        timeout: uint,
+        completed: bool,
+        signatures: (list 10 principal)
+    }
+)
+
+;; Helper Functions
+(define-private (calculate-fee (amount uint))
+    (/ (* amount (var-get bridge-fee)) BASIS-POINTS))
