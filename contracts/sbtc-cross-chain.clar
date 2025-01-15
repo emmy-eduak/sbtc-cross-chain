@@ -150,3 +150,24 @@
         (ok (map-set pending-swaps
             swap-id
             (merge swap {signatures: (unwrap! (as-max-len? (append signatures tx-sender) u10) ERR-INVALID-SIGNATURE)})))))
+
+;; Bridge Transfer Completion
+(define-public (complete-bridge-transfer (swap-id uint) (token-contract <sip-010-trait>))
+    (let 
+        ((swap (unwrap! (map-get? pending-swaps swap-id) ERR-SWAP-NOT-FOUND))
+         (signatures (get signatures swap))
+         (token (contract-of token-contract)))
+        (asserts! (not (var-get paused)) ERR-BRIDGE-PAUSED)
+        (asserts! (not (get completed swap)) ERR-SWAP-ALREADY-COMPLETED)
+        (asserts! (>= (len signatures) u3) ERR-INVALID-SIGNATURE) ;; Minimum 3 signatures required
+        (asserts! (< block-height (get timeout swap)) ERR-SWAP-EXPIRED)
+        (asserts! (is-eq token (get token swap)) ERR-INVALID-TOKEN)
+        (try! (as-contract 
+            (contract-call? 
+                token-contract
+                transfer 
+                (get amount swap) 
+                (as-contract tx-sender) 
+                (get initiator swap) 
+                none)))
+        (ok (map-set pending-swaps swap-id (merge swap {completed: true})))))
